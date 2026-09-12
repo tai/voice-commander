@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">VoiceCommander</string>
+    <string name="acc_desc">Lets VoiceCommander detect the frontmost app and write the spoken instruction into the focused text field.</string>
+</resources>

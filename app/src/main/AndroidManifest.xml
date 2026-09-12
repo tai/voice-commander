@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="com.termux.permission.RUN_COMMAND" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+
+    <application
+        android:label="VoiceCommander"
+        android:theme="@style/VcTheme"
+        android:allowBackup="false">
+
+        <activity
+            android:name=".ui.MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name=".ui.EditActivity"
+            android:exported="false" />
+
+        <receiver
+            android:name=".overlay.StartReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="dev.voicecommander.START" />
+                <action android:name="dev.voicecommander.STOP" />
+                <action android:name="dev.voicecommander.INJECT" />
+                <action android:name="dev.voicecommander.PROBE_TERMUX" />
+                <action android:name="dev.voicecommander.TEST_ECHO" />
+                <action android:name="dev.voicecommander.A11Y_INJECT" />
+                <action android:name="dev.voicecommander.TERMUX_SCRIPT" />
+            </intent-filter>
+        </receiver>
+
+        <service
+            android:name=".overlay.InputService"
+            android:exported="true"
+            android:foregroundServiceType="microphone" />
+
+        <service
+            android:name=".input.CommanderAccessibilityService"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/accessibility_service_config" />
+        </service>
+    </application>
+</manifest>
