@@ -210,7 +210,7 @@ class MainActivity : Activity() {
         Mode.entries.forEach { m ->
             var inToggle = false
             val check = CheckBox(this).apply {
-                text = m.label
+                text = Mode.effectiveLabel(m, AppState.prefs(this@MainActivity).getString(labelKey(m), ""))
                 isChecked = m.name in enabled
                 setOnCheckedChangeListener { _, checked ->
                     if (inToggle) return@setOnCheckedChangeListener
@@ -234,6 +234,11 @@ class MainActivity : Activity() {
                 setPadding(dp(36), 0, 0, dp(6))
             })
 
+            val titleEdit = EditText(this).apply {
+                textSize = 13f
+                setText(Mode.effectiveLabel(m, AppState.prefs(this@MainActivity).getString(labelKey(m), "")))
+                visibility = View.GONE
+            }
             val editor = EditText(this).apply {
                 textSize = 12f
                 typeface = android.graphics.Typeface.MONOSPACE
@@ -242,32 +247,41 @@ class MainActivity : Activity() {
                 setText(effectivePrompt(m, AppState.prefs(this@MainActivity).getString(promptKey(m), "")))
                 visibility = View.GONE
             }
-            val saveP = button("Save prompt") {
-                AppState.prefs(this@MainActivity)
-                    .edit().putString(promptKey(m), editor.text.toString()).apply()
-                Toast.makeText(this, "prompt saved", Toast.LENGTH_SHORT).show()
+            val saveC = button("Save customizations") {
+                AppState.prefs(this@MainActivity).edit()
+                    .putString(labelKey(m), titleEdit.text.toString())
+                    .putString(promptKey(m), editor.text.toString())
+                    .apply()
+                check.text = Mode.effectiveLabel(m, titleEdit.text.toString())
+                Toast.makeText(this, "title + prompt saved", Toast.LENGTH_SHORT).show()
             }.apply { visibility = View.GONE }
-            val resetP = button("Restore default prompt") {
-                AppState.prefs(this@MainActivity).edit().remove(promptKey(m)).apply()
+            val resetC = button("Restore defaults") {
+                AppState.prefs(this@MainActivity).edit()
+                    .remove(labelKey(m)).remove(promptKey(m)).apply()
+                titleEdit.setText(m.label)
                 editor.setText(m.prompt)
-                Toast.makeText(this, "default restored", Toast.LENGTH_SHORT).show()
+                check.text = m.label
+                Toast.makeText(this, "defaults restored", Toast.LENGTH_SHORT).show()
             }.apply { visibility = View.GONE }
-            val editBtn = button("Edit prompt") {
+            val customizeBtn = button("Customize (title + prompt)") {
                 val show = editor.visibility != View.VISIBLE
+                titleEdit.visibility = if (show) View.VISIBLE else View.GONE
                 editor.visibility = if (show) View.VISIBLE else View.GONE
-                saveP.visibility = if (show) View.VISIBLE else View.GONE
-                resetP.visibility = if (show) View.VISIBLE else View.GONE
+                saveC.visibility = if (show) View.VISIBLE else View.GONE
+                resetC.visibility = if (show) View.VISIBLE else View.GONE
             }
-            col.addView(editBtn)
-            col.addView(editor)
-            col.addView(saveP)
-            col.addView(resetP)
+            col.addView(customizeBtn)
+            col.addView(view("Title")); col.addView(titleEdit)
+            col.addView(view("Prompt")); col.addView(editor)
+            col.addView(saveC)
+            col.addView(resetC)
             col.addView(view(" ")) // spacing
         }
         return col
     }
 
     private fun promptKey(m: Mode) = "prompt_${m.name}"
+    private fun labelKey(m: Mode) = "label_${m.name}"
 
     // ---------------------------------------------------------------- Status
 

@@ -129,7 +129,7 @@ class InputService : Service() {
         log("session.start")
         closePopup()          // a new session invalidates a pending popup
         closeModeMenu()
-        setStatus("listening · ${currentMode().label}")
+        setStatus("listening · ${modeLabel(currentMode())}")
         sessionId++
         buffer.reset()
         intentText = null
@@ -457,7 +457,7 @@ class InputService : Service() {
         if (popupView == null) buildPopup()
         popupPreview?.text = text
         popupTag?.text = tag
-        popupTarget?.text = "→ ${targetLabel()} · ${currentMode().label}"
+        popupTarget?.text = "→ ${targetLabel()} · ${modeLabel(currentMode())}"
     }
 
     private fun buildPopup() {
@@ -633,6 +633,9 @@ fi
         }
     }
 
+    private fun modeLabel(m: Mode): String =
+        Mode.effectiveLabel(m, AppState.prefs(this).getString(Mode.LABEL_OVERRIDE_KEY + m.name, ""))
+
     private fun currentMode(): Mode {
         val prefs = AppState.prefs(this)
         val enabled = Mode.enabled(prefs.getStringSet(Mode.ENABLED_KEY, null))
@@ -672,7 +675,7 @@ fi
                 isClickable = true
             }
             row.addView(TextView(this).apply {
-                text = (if (m == current) "● " else "○ ") + m.label
+                text = (if (m == current) "● " else "○ ") + modeLabel(m)
                 textSize = 14f
                 setTextColor(Color.WHITE)
             })

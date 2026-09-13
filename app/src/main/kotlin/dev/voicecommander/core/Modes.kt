@@ -64,6 +64,7 @@ content, reply ONLY with: NOP: <short reason in the speaker's language>
         const val PREF_KEY = "mode"
         const val ENABLED_KEY = "enabled_modes"
         const val PROMPT_OVERRIDE_KEY = "prompt_"  // + mode.name
+        const val LABEL_OVERRIDE_KEY = "label_"    // + mode.name
         const val NOP_PREFIX = "NOP:"
         const val DEFAULT_ID = "AI_INTERACTION"
 
@@ -81,5 +82,9 @@ content, reply ONLY with: NOP: <short reason in the speaker's language>
          *  built-in default when present (issue #7 comment plan). */
         fun effectivePrompt(mode: Mode, override: String?): String =
             if (override.isNullOrBlank()) mode.prompt else override.trim()
+
+        /** User-editable display titles: same override pattern as prompts. */
+        fun effectiveLabel(mode: Mode, override: String?): String =
+            if (override.isNullOrBlank()) mode.label else override.trim()
     }
 }

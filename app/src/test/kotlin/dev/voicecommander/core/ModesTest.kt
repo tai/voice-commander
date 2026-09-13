@@ -34,6 +34,14 @@ class ModesTest {
     }
 
     @Test
+    fun `enabled filter honors persistence`() {
+        assertEquals(2, Mode.enabled(null).size)
+        assertEquals(2, Mode.enabled(emptySet()).size)
+        assertEquals(listOf(Mode.DOCUMENT_EDIT), Mode.enabled(setOf("DOCUMENT_EDIT")))
+        assertEquals(2, Mode.enabled(setOf("SQL")).size)  // unknown-only = all
+    }
+
+    @Test
     fun `prompt override replaces the default when present`() {
         assertEquals(Mode.AI_INTERACTION.prompt, Mode.effectivePrompt(Mode.AI_INTERACTION, null))
         assertEquals("custom", Mode.effectivePrompt(Mode.AI_INTERACTION, " custom "))
@@ -41,10 +49,9 @@ class ModesTest {
     }
 
     @Test
-    fun `enabled filter honors persistence`() {
-        assertEquals(2, Mode.enabled(null).size)
-        assertEquals(2, Mode.enabled(emptySet()).size)
-        assertEquals(listOf(Mode.DOCUMENT_EDIT), Mode.enabled(setOf("DOCUMENT_EDIT")))
-        assertEquals(2, Mode.enabled(setOf("SQL")).size)  // unknown-only = all
+    fun `label override replaces the default when present`() {
+        assertEquals("AI interaction", Mode.effectiveLabel(Mode.AI_INTERACTION, null))
+        assertEquals("Command", Mode.effectiveLabel(Mode.AI_INTERACTION, " Command "))
+        assertEquals("Document edit", Mode.effectiveLabel(Mode.DOCUMENT_EDIT, "   "))
     }
 }
