@@ -40,22 +40,8 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val tabBar = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            setPadding(dp(12), 0, dp(12), 0)
-        }
-        val tabViews = listOf("General", "Mode", "Status").map { buildTab(it) }
-
-        fun select(i: Int) {
-            tabViews.forEachIndexed { idx, v ->
-                v.setBackgroundColor(if (idx == i) Color.rgb(224, 231, 238) else Color.TRANSPARENT)
-                v.setTextColor(if (idx == i) Color.BLACK else Color.rgb(90, 90, 90))
-            }
-        }
-        tabBar.addView(tabViews[0], weight(1f))
-        tabBar.addView(tabViews[1], weight(1f))
-        tabBar.addView(tabViews[2], weight(1f))
-
+        lateinit var titleView: TextView
+        val names = listOf("General", "Mode", "Status")
         val panels = listOf(
             ScrollView(this).apply { addView(panelGeneral()) },
             ScrollView(this).apply { addView(panelMode()) },
@@ -63,34 +49,91 @@ class MainActivity : Activity() {
         )
         val container = FrameLayout(this).apply { panels.forEach { addView(it) } }
 
-        fun show(i: Int) {
-            android.util.Log.d("VCMain", "tab.click $i")
-            select(i)
-            panels.forEachIndexed { c, p -> p.visibility = if (c == i) View.VISIBLE else View.GONE }
+        // --- drawer ------------------------------------------------------------
+        val drawerItems = names.map { name ->
+            TextView(this).apply {
+                text = name
+                textSize = 16f
+                setPadding(dp(20), dp(16), dp(20), dp(16))
+            }
         }
-        tabViews.forEachIndexed { i, tv -> tv.setOnClickListener { show(i) } }
-        show(0)
+        val drawerHead = TextView(this).apply {
+            text = "VoiceCommander · config"
+            textSize = 15f
+            setTextColor(Color.BLACK)
+            setPadding(dp(20), dp(24), dp(20), dp(12))
+        }
+        val drawer = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(Color.WHITE)
+            visibility = View.GONE
+            addView(drawerHead)
+            drawerItems.forEach { addView(it) }
+        }
+        val drawerLp = FrameLayout.LayoutParams(dp(260).toInt(), ViewGroup.LayoutParams.MATCH_PARENT, Gravity.START)
+        val scrim = View(this).apply {
+            setBackgroundColor(0x66000000)
+            visibility = View.GONE
+        }
+        container.addView(scrim, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        container.addView(drawer, drawerLp)
+
+        fun style(i: Int) {
+            drawerItems.forEachIndexed { idx, v ->
+                v.setBackgroundColor(if (idx == i) Color.rgb(224, 231, 238) else Color.TRANSPARENT)
+                v.setTextColor(if (idx == i) Color.BLACK else Color.rgb(60, 60, 60))
+            }
+        }
+
+        fun closeDrawer() {
+            scrim.visibility = View.GONE
+            drawer.visibility = View.GONE
+        }
+
+        fun show(i: Int) {
+            android.util.Log.d("VCMain", "nav ${names[i]}")
+            titleView.text = names[i]
+            style(i)
+            panels.forEachIndexed { c, p -> p.visibility = if (c == i) View.VISIBLE else View.GONE }
+            closeDrawer()
+        }
+        drawerItems.forEachIndexed { i, v -> v.setOnClickListener { show(i) } }
+        scrim.setOnClickListener { closeDrawer() }
+
+        val hamburger = TextView(this).apply {
+            text = "☰"
+            textSize = 22f
+            setPadding(dp(14), dp(10), dp(14), dp(10))
+        }
+        titleView = TextView(this).apply {
+            text = names[0]
+            textSize = 18f
+            setTextColor(Color.BLACK)
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        fun openDrawer() {
+            scrim.visibility = View.VISIBLE
+            drawer.visibility = View.VISIBLE
+        }
+        hamburger.setOnClickListener { openDrawer() }
+        val topbar = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            addView(hamburger)
+            addView(titleView)
+        }
 
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            addView(tabBar)
+            addView(topbar)
             addView(container, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
         }
+        val sid = resources.getIdentifier("status_bar_height", "dimen", "android")
+        val sb = if (sid > 0) resources.getDimensionPixelSize(sid) else 0
+        root.setPadding(0, sb, 0, 0)   // keep the topbar below the status bar
         setContentView(root)
+        show(0)
     }
-
-    private fun FrameLayout.swap(i: Int) {
-        for (c in 0 until childCount) getChildAt(c).visibility = if (c == i) View.VISIBLE else View.GONE
-    }
-
-    private fun buildTab(label: String) = TextView(this).apply {
-        text = label
-        textSize = 15f
-        gravity = Gravity.CENTER
-        setPadding(dp(8), dp(14), dp(8), dp(14))
-    }
-
-    private fun weight(w: Float) = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, w)
 
     // ---------------------------------------------------------------- General
 
