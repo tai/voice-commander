@@ -131,7 +131,7 @@ tmux, set the session name in VoiceCommander settings.
    phone. The one-liner, inside Termux:
    `echo "allow-external-apps=true" >> ~/.termux/termux.properties`
    then restart Termux (or `termux-reload-settings`). After that, Send with
-   Termux frontmost should deliver via `termux-input` (no Enter).
+   Termux frontmost delivers via tmux `send-keys` and submits on Send.
 
 ## What needs the unlocked phone (your part)
 
@@ -148,7 +148,7 @@ so every interactive step still needs you:
 4. **Termux delivery**: device already has `com.termux` and `com.termux.api`.
    In Termux run `pkg install termux-api` and add `allow-external-apps=true`
    to `~/.termux/termux.properties`, then restart Termux. Send routes to
-   `termux-input` with no Enter appended.
+   tmux `send-keys` + Enter on Send (auto-submit).
 
 ## Known limitations of the first cut
 
@@ -157,7 +157,8 @@ so every interactive step still needs you:
   unmeasured.
 - SpeechRecognizer language is ja-JP by default (device locale); the
   keywords setting does not exist yet — prototype limitation.
-- `termux-input` command syntax assumed, not exercised end to end.
+- tmux `send-keys` delivery verified end to end on the device (marker-file
+  proof); output readback via `capture-pane` verified.
 - No OpenAI key in the app, so interpretation is untested on the device.
 - API key stored in SharedPreferences (plain), not encrypted (A8 pending).
 - Overlay not draggable; the button is fixed bottom-end (A2 refinement
@@ -168,7 +169,8 @@ so every interactive step still needs you:
 1. On-device run of the full loop with speech (RAW → popup → Send).
 2. INTENT quality with a real API key — constraint fidelity on the sample
    utterances; the M3 gate from AGENTS.md.
-3. Termux round-trip with a real agent prompt; `termux-input` verification.
+3. Termux round-trip with a real agent prompt (done in the demo: pi agent
+   edited the repo from a voice-typed INTENT).
 4. Edit/bounce loop and per-app `ACTION_SET_TEXT` on the device.
 5. Re-measure: recognizer latency/quality, popup cadence, battery.
 

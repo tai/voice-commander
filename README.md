@@ -10,9 +10,10 @@ Hold a button on a floating panel, say what you want done, release, and a
 review popup shows what the agent will receive — the interpretation when it's
 ready, your raw words when it isn't — with **Send**, **Edit**, or **Cancel**.
 Send delivers the text into the app in front of you — Termux first, other apps
-generically, clipboard as a universal fallback. Nothing is
-executed by voice alone: the instruction is text at the agent's prompt, and the
-agent acts only after you press Return in the terminal.
+generically, clipboard as a universal fallback. Nothing runs on voice alone:
+speaking and releasing never send anything — only the review popup's **Send**
+hands the instruction to the agent, and for Termux it is typed in **and
+submitted**, so the agent starts working immediately.
 
 ```
 ┌────────────────────────────────────────────────┐
@@ -47,9 +48,10 @@ agent acts only after you press Return in the terminal.
   review popup shows the exact text — interpreted when ready, raw when not —
   and gives you Send, Edit, or Cancel. A misfire costs one tap, never an
   action.
-- **Nothing runs on voice alone.** The instruction lands as *text* at the
-  agent's prompt in Termux. The agent is not invoked until you press Return in
-  the terminal.
+- **Nothing runs on voice alone.** Speaking, holding and releasing never
+  send anything. Only **Send** in the review popup hands the INTENT to the
+  agent — and for Termux it is submitted with the confirmation, so the agent
+  starts working immediately.
 - **Cheap to use daily.** The raw speech comes from Android's built-in speech
   recognition (on-device, free); the interpretation is the only paid step.
 - **Technical speech works.** Terms, paths, identifiers, flags and mixed
@@ -72,9 +74,9 @@ INTENT (LLM interpretation, live in the panel; the popup never waits for it)
         │
         ▼  review popup: Send / Edit / Cancel
         │
-Send ──► tmux send-keys into Termux │ ACTION_SET_TEXT into a text field │ clipboard
+Send ──► tmux send-keys + Enter into Termux │ ACTION_SET_TEXT (no submit) │ clipboard
         │
-        ▼  you press Return in the terminal
+        ▼  for Termux the INTENT is submitted on Send
 agent runs it
 ```
 
@@ -107,10 +109,10 @@ Or open the project in Android Studio and press Run. There is no packaged
 release yet.
 
 First launch: follow the permission walkthrough (mic → display over other
-apps → accessibility → battery). In **Termux**, install `termux-api` and run
-`pkg install termux-api`, then in VoiceCommander settings confirm Termux routes
-through `termux-input`. If you use the volume-key trigger, set your volume keys
-accordingly when VoiceCommander asks.
+apps → accessibility → battery). In **Termux**, `pkg install tmux`, set
+`allow-external-apps=true` in `~/.termux/termux.properties`, and grant
+VoiceCommander's `com.termux.permission.RUN_COMMAND` runtime permission when
+asked. If you use the volume-key trigger, set your volume keys accordingly.
 
 ## Using it
 
@@ -133,9 +135,9 @@ release. The review popup appears.
 **Spoken directives** work mid-sentence: *make it shorter*, *in English*,
 *type it verbatim*. The INTENT reflects them before the popup appears.
 
-**Confirm in the terminal:** after Send into Termux, the instruction is text at
-the agent's prompt. Press **Return in Termux** to hand it to the agent.
-VoiceCommander never presses Return for you.
+**Confirm on the panel:** nothing is ever sent by voice alone. The review
+popup's **Send** is the confirmation — for Termux the INTENT is typed into the
+agent session **and submitted**, so the agent starts working immediately.
 
 **Volume-key trigger (optional):** hold **Volume Up** to speak, release to open
 the same review popup. Turn it on in settings; volume control returns when it's

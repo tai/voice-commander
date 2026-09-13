@@ -7,8 +7,10 @@ speaks a task, releases*, and a review popup offers **Send / Edit / Cancel**.
 Send delivers the user's **intent** — not a literal transcript — into the app
 in front: Termux first (an agent REPL reading stdin), other apps generically
 (an accessible text field), clipboard as universal fallback. The instruction is
-text at the agent's prompt; **the agent acts only when the user presses Return
-in the terminal**. Nothing is executed by voice alone.
+in front: for Termux, Send types the intent into the agent session and
+submits it, so the agent starts working immediately. Nothing is executed by
+voice alone: only the user's explicit Send in the review popup reaches the
+agent.
 
 The lineage: a macOS prototype (`../voice-ime/`) proved the product's core —
 live RAW + LLM-interpreted CANDIDATE, race-safe debounced interpretation, a
@@ -66,16 +68,16 @@ Japanese is first-class; English and mixed Japanese/English/code work too.
 - wake-word or always-on microphone (mic runs only while holding)
 - voice *output* from the agent (reading replies aloud)
 - running the agent, spawning terminals, or managing agent sessions
-- auto-executing anything the LLM produced (no synthesized Enter, ever, by
-  default)
+- auto-executing anything the LLM produced without the user's explicit Send
+  confirmation
 - system-wide text replacement / rewriting of ordinary dictation (that is the
   macOS prototype's job)
 - iOS, Wear OS, watch companions
 - cloud backend infrastructure of our own
 
 First success criterion: **hold, speak a task, release, review popup shows the
-intent, Send, instruction at the agent's prompt in Termux, press Return in
-Termux, the agent acts on it**.
+intent, Send — the instruction is typed into the agent's session in Termux and
+submitted, and the agent acts on it**.
 
 ## Platform constraints
 
@@ -131,8 +133,10 @@ OPENAI_API_KEY=...                    # from the app's settings screen, never in
 
 The rules a change must not break (full design in `DESIGN.md`):
 
-- **Never auto-execute.** INTENT is text at a prompt; Enter is never
-  synthesized. The default is user-pressed Return in the terminal.
+- **Never run on voice alone.** Speaking, releasing and dismissing never send
+  anything; only an explicit **Send** on the review popup delivers the INTENT.
+  For Termux that Send includes submission (Enter), so the agent starts
+  immediately — there is no second confirmation step.
 - **Deliver what the popup shows, and only that.** The preview is the buffer
   snapshot at release — INTENT if ready, RAW otherwise — and Send delivers
   exactly the preview at tap time (an in-flight interpretation may update the
@@ -165,8 +169,8 @@ One-time grants, each explained in-app, not silently assumed:
   controls.
 - Battery optimisation exemption (`REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`) —
   otherwise the service gets dozed mid-session.
-- Termux side: the **Termux:API** app and its `termux-input` command for
-  terminal delivery; the user enables this in Termux, documented in README.
+- Termux side: **tmux** installed, `allow-external-apps=true`, and the
+  `com.termux.permission.RUN_COMMAND` runtime grant; documented in README.
 
 Screen-on is the supported scenario; follow the chosen targetSdk's
 foreground-service microphone rules exactly.
@@ -216,7 +220,7 @@ Say:
 ```
 
 INTENT ≈ "list every use of `unsafe` in Rust files under this directory".
-Send into Termux, press Return in Termux, the agent acts. All constraints
+Send into Termux — typed in and submitted — the agent acts. All constraints
 survive.
 
 ### Number and name fidelity
@@ -231,8 +235,8 @@ Japanese containing `Git`, `Rust`, `Swift`, `WebSocket`, `OpenAI` and flags
 ### Command-like speech
 
 「このディレクトリ以下のRustファイルからunsafeを探すコマンドを実行して」 — the
-instruction lands as text; *you* press Return in Termux. Check no Enter was
-synthesized and no step not spoken appears.
+instruction lands in the session and is submitted on Send; the user *chooses*
+whether to let the agent run it. Check no step not spoken appears.
 
 ### Ambiguity
 
@@ -256,7 +260,7 @@ INTENT is the literal cleaned text.
 
 ### Delivery matrix
 
-Termux frontmost → `termux-input`; another app with a focused text field →
+Termux frontmost → tmux `send-keys` (submitted on Send); another app with a focused text field →
 `ACTION_SET_TEXT`; Termux closed / no field → clipboard with notice. Try all
 three routes, and a two-app (Termux + messenger) focus switch.
 
@@ -322,7 +326,7 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 Port `scripts/fake-openai.py` from the prototype for offline plumbing checks of
 the OpenAI path. Delivery to Termux is verified on a real device; for
 automated checks use the pty fake-agent running in Termux (or an emulator
-adb shell session) and assert the exact bytes `termux-input` would see. The
+adb shell session) and assert the exact bytes the tmux channel would deliver. The
 macOS replay harness has no direct Android equivalent — its job is covered by
 samples + expected-INTENT scoring in JVM tests.
 
@@ -360,8 +364,8 @@ downstream is lost.
 
 ### Milestone 4 — Delivery
 
-- Routing rules → `TermuxCommitter` (`termux-input`, no Enter), then
-  `SetTextCommitter` (`ACTION_SET_TEXT`), then `ClipboardCommitter` fallback.
+- Routing rules → `TermuxCommitter` (tmux `send-keys -l` + Enter on Send),
+  then `SetTextCommitter` (`ACTION_SET_TEXT`), then `ClipboardCommitter` fallback.
 - Target naming in the popup footer; no-target fallback path.
 - Verify the delivery matrix manually and the Termux path against
   `fake-agent` on device.
@@ -393,8 +397,8 @@ loop is daily-used and its real bottleneck is named.
 6. Keep OpenAI wire types at the provider boundary; Transcriber and
    interpreter stay separate interfaces.
 7. Test pure logic with JVM tests before touching the device.
-8. **Never auto-execute** and **never auto-send RAW**: the review popup is the
-   guard, the user's Return is the trigger.
+8. **Never run on voice alone** and **never auto-send RAW**: the review popup
+   is the guard, the user's Send is the trigger (for Termux it submits too).
 9. Do not over-engineer extensibility before hold → speak → INTENT → Send →
    agent response works.
 10. Record discoveries and deviations in `DESIGN.md` rather than silently
@@ -414,8 +418,8 @@ On a real Android phone (API 29+, Play-Services recognizer):
 3. INTENT appears in the panel during the utterance; the review popup opens
    instantly on release showing the current buffer (INTENT if ready, else
    RAW) with Send available immediately.
-4. Send into Termux puts exactly the displayed INTENT at the agent's prompt as
-   text; the agent acts only after the user presses Return in Termux.
+4. Send into Termux puts exactly the displayed INTENT at the agent's prompt
+   and submits it; the agent starts working immediately.
 5. Only an explicit Send on the displayed preview delivers anything; the
    preview falls back to RAW when INTENT is not ready, so the user never has
    to wait for interpretation.

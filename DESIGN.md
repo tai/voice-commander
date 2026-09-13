@@ -30,9 +30,9 @@ What changed because it is Android:
    release does not commit: a review popup (Send / Edit / Cancel) is the
    platform's answer to the prototype's Esc key and its "see it before it
    lands" promise.
-3. **Delivery is routed.** Termux via `termux-input`, generic apps via
-   `ACTION_SET_TEXT`, clipboard as the universal fallback — instead of the
-   single paste path.
+3. **Delivery is routed.** Termux via tmux `send-keys` (submitted on Send),
+   generic apps via `ACTION_SET_TEXT`, clipboard as the universal fallback —
+   instead of a single paste path.
 
 What survives unchanged from the macOS design: the interpretation contract
 (intent over wording, constraints sacred, no invention), the race handling,
@@ -50,7 +50,7 @@ the others carried over from the macOS design.
 | A2 | Primary trigger | floating hold-button (touch-down listen, touch-up review, slide-off cancel) | volume-key trigger opt-in later; quick-settings tile not in MVP |
 | A3 | Review popup payload | popup opens instantly on release showing the current buffer: INTENT if ready, else RAW; Send enabled immediately | fast release: the user never waits for interpretation; in-flight INTENT may update the preview before Send |
 | A4 | Edit surface | small editor Activity (system keyboard reliability) | in-overlay editor is OEM-flaky; rejected |
-| A5 | Delivery routing | frontmost-app → Termux `termux-input` \| focused text field `ACTION_SET_TEXT` \| clipboard+notice | no Enter synthesized in any route |
+| A5 | Delivery routing | frontmost-app → Termux (tmux, submitted on Send) \| focused text field `ACTION_SET_TEXT` (text only) \| clipboard+notice | Send is the explicit user hand-off |
 | A6 | Popup lifecycle | auto-cancel ~2 min or on new session; preceding popup cancelled first | no stale INTENT can ever be sent |
 | A7 | Session start rule | popup pending blocks a new session (resolves as A6) | — |
 | A8 | Min OS | Android 10 / API 29 | newer minSdk needs a reason |
@@ -75,7 +75,7 @@ the others carried over from the macOS design.
         ▼
    Router: TermuxCommitter → SetTextCommitter → ClipboardCommitter
         ▼
-   agent prompt in Termux ──► user presses Return in Termux ──► agent runs
+   agent session in Termux (Send = tmux send-keys + Enter) ──► agent runs
 ```
 
 Modules:
@@ -199,8 +199,10 @@ never covers the whole screen.
 Why Send doesn't wait: the user asked for release-as-soon-as-it-reads-well,
 and the raw text can be exactly right. The popup remains the guard — nothing
 is delivered except by an explicit Send on displayed text — so the fallback
-is safe: delivery never executes (no Enter synthesized in any route), and the
-raw option is user-confirmed, not automatic. This deliberately relaxes the
+is safe: nothing is delivered by voice alone — Send is the explicit, visible
+hand-off — and the raw option is user-confirmed, not automatic. For Termux,
+Send also submits (Enter), so the agent starts immediately; that is the
+author's explicit choice. This deliberately relaxes the
 prototype's commit rule (release inserts the visible text and discards the
 in-flight rewrite): the popup's review window is long enough that a completed
 interpretation is worth showing rather than throwing away.
@@ -223,11 +225,11 @@ one task switch during a deliberate action.
 
 Routing, evaluated at Send time:
 
-1. **Termux frontmost** → `TermuxCommitter`: broadcast to the Termux:API
-   helper executing `termux-input text <INTENT>` (syntax verified at
-   implementation time; may be `termux-input keyevent` for a trailing
-   newline-less confirm). **No Enter is appended.** Text lands at the prompt;
-   the user presses Return in Termux.
+1. **Termux frontmost** → `TermuxCommitter`: a `RUN_COMMAND` script runs
+   `tmux send-keys -l <INTENT>` then `tmux send-keys Enter` — the INTENT enters
+   the agent session's input queue **submitted**, so the agent starts working
+   immediately. (Auto-submit is explicit and popup-confirmed; off is a one-line
+   flag.)
 2. **Other app, focused editable node** → `SetTextCommitter`:
    `AccessibilityService.performAction(ACTION_SET_TEXT)` on the focused
    editable node. No focus stealing, no paste. Fails safely on secure fields
