@@ -32,8 +32,12 @@ class CommanderAccessibilityService : AccessibilityService() {
 
         when (event.eventType) {
             AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> {
-                AppState.frontmostPackage = event.packageName?.toString()
-                Log.d(TAG, "event.window pkg=${event.packageName} cls=${event.className}")
+                val pkg = event.packageName?.toString() ?: return
+                // System chrome (status/nav, IMEs) fires window events that would
+                // clobber the real target; keep the last genuine app frontmost.
+                if (pkg == "com.android.systemui" || pkg.contains("inputmethod")) return
+                AppState.frontmostPackage = pkg
+                Log.d(TAG, "event.window pkg=$pkg cls=${event.className}")
                 AppState.focusedNode = null
             }
             AccessibilityEvent.TYPE_VIEW_FOCUSED,

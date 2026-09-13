@@ -1,5 +1,8 @@
 # VoiceCommander
 
+<img src="doc/asset/demo-short-zoom.gif" width="440" alt="Zoom: the floating button, live RAW/INTENT, and the Send/Edit/Cancel review popup in action" />
+
+
 Speak a task, and the instruction the agent actually needs — not your literal
 words — lands at the agent's prompt in your terminal, on Android.
 
@@ -32,6 +35,12 @@ agent acts only after you press Return in the terminal.
 │   [Send]     [Edit]     [Cancel]    → Termux   │
 └────────────────────────────────────────────────┘
 ```
+
+<p align="center">
+  <img src="doc/asset/shot-listening.png" width="260" alt="Listening — RAW streams while holding the button">
+  <img src="doc/asset/shot-popup.png" width="260" alt="Review popup — interpreted intent with Send / Edit / Cancel">
+  <img src="doc/asset/shot-delivery.png" width="260" alt="Delivered — text inserted into the target app">
+</p>
 
 ## Why it is worth using
 
