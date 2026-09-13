@@ -633,7 +633,11 @@ fi
 
     private fun currentMode(): Mode {
         val prefs = AppState.prefs(this)
-        return Mode.byId(prefs.getString(Mode.PREF_KEY, Mode.DEFAULT_ID))
+        val enabled = Mode.enabled(prefs.getStringSet(Mode.ENABLED_KEY, null))
+        val m = Mode.byId(prefs.getString(Mode.PREF_KEY, Mode.DEFAULT_ID))
+        val eff = if (enabled.any { it == m }) m else enabled.first()
+        if (eff != m) prefs.edit().putString(Mode.PREF_KEY, eff.name).apply()  // clamp persisted
+        return eff
     }
 
     // ---------------------------------------------------------------- mode menu
@@ -655,7 +659,7 @@ fi
         }
         card.addView(head)
         val current = currentMode()
-        Mode.entries.forEach { m ->
+        Mode.enabled(AppState.prefs(this).getStringSet(Mode.ENABLED_KEY, null)).forEach { m ->
             val row = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 setPadding(dp(8f).toInt(), dp(6f).toInt(), dp(8f).toInt(), dp(6f).toInt())
@@ -739,6 +743,11 @@ fi
             this, 0, Intent(this, MainActivity::class.java),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
+        val setup = PendingIntent.getActivity(
+            this, 2, Intent(this, MainActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
         val stop = PendingIntent.getService(
             this, 1, Intent(this, InputService::class.java).setAction(ACTION_STOP),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
@@ -749,6 +758,7 @@ fi
                 .setContentTitle("VoiceCommander")
                 .setContentText("Hold the floating button to speak a task")
                 .setContentIntent(open)
+                .addAction(0, "Setup", setup)
                 .addAction(0, "Stop", stop)
                 .build()
         } else {
@@ -758,6 +768,7 @@ fi
                 .setContentTitle("VoiceCommander")
                 .setContentText("Hold the floating button to speak a task")
                 .setContentIntent(open)
+                .addAction(0, "Setup", setup)
                 .addAction(0, "Stop", stop)
                 .build()
         }

@@ -18,10 +18,12 @@ import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import android.widget.CheckBox
 import android.widget.Toast
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import dev.voicecommander.AppState
+import dev.voicecommander.core.Mode
 import dev.voicecommander.overlay.InputService
 
 /**
@@ -139,12 +141,14 @@ class MainActivity : Activity() {
             addView(view("Model")); addView(modelEdit)
             addView(view("Language")); addView(langEdit)
             addView(view("Termux tmux session")); addView(tmuxEdit)
+            addView(view("Modes"))
             addView(save)
             addView(view("Setup")); addView(mic); addView(overlay); addView(acc); addView(notif); addView(battery)
             addView(view("Service")); addView(start); addView(stop); addView(check)
             addView(view("Termux")); addView(termux)
             addView(status)
         }
+        ModesBlock().attach(this@MainActivity, col)
         val scroll = ScrollView(this).apply {
             addView(col, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         }
@@ -185,4 +189,46 @@ class MainActivity : Activity() {
             frontmost: ${AppState.frontmostPackage ?: "(unknown — enable accessibility)"}
         """.trimIndent()
     }
+}
+/** Per-mode enable/disable section (issue #7): one toggle row per mode,
+ *  persisted as a StringSet; at least one mode must stay enabled. */
+private class ModesBlock {
+    fun attach(activity: MainActivity, col: LinearLayout) {
+        val enabled = (AppState.prefs(activity)
+            .getStringSet(Mode.ENABLED_KEY, null) ?: Mode.entries.map { it.name }.toSet())
+            .toMutableSet()
+        Mode.entries.forEach { m ->
+            var inToggle = false
+            val check = CheckBox(activity).apply {
+                text = m.label
+                isChecked = m.name in enabled
+                setOnCheckedChangeListener { _, checked ->
+                    if (inToggle) return@setOnCheckedChangeListener
+                    when {
+                        checked -> enabled.add(m.name)
+                        enabled.size > 1 -> enabled.remove(m.name)
+                        else -> {
+                            inToggle = true; isChecked = true; inToggle = false
+                            Toast.makeText(activity, "keep at least one mode enabled", Toast.LENGTH_SHORT).show()
+                            return@setOnCheckedChangeListener
+                        }
+                    }
+                    AppState.prefs(activity).edit().putStringSet(Mode.ENABLED_KEY, enabled).apply()
+                    AppState.prefs(activity).edit().putString(Mode.PREF_KEY,
+                        Mode.byId(AppState.prefs(activity).getString(Mode.PREF_KEY, Mode.DEFAULT_ID).let {
+                            if (it in enabled) it else enabled.first()
+                        }).name).apply()
+                }
+            }
+            val desc = TextView(activity).apply {
+                text = m.description
+                textSize = 11f
+                setTextColor(Color.rgb(120, 120, 120))
+                setPadding(dp(activity, 36), 0, 0, dp(activity, 6))
+            }
+            col.addView(check)
+            col.addView(desc)
+        }
+    }
+    private fun dp(a: MainActivity, v: Int) = (v * a.resources.displayMetrics.density).toInt()
 }

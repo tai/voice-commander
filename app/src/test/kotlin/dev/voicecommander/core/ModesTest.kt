@@ -32,4 +32,12 @@ class ModesTest {
         assertTrue(Mode.AI_INTERACTION.prompt.contains("INSTRUCTIVE, not descriptive"))
         assertTrue(Mode.AI_INTERACTION.prompt.contains("acts immediately"))
     }
+
+    @Test
+    fun `enabled filter honors persistence`() {
+        assertEquals(2, Mode.enabled(null).size)
+        assertEquals(2, Mode.enabled(emptySet()).size)
+        assertEquals(listOf(Mode.DOCUMENT_EDIT), Mode.enabled(setOf("DOCUMENT_EDIT")))
+        assertEquals(2, Mode.enabled(setOf("SQL")).size)  // unknown-only = all
+    }
 }

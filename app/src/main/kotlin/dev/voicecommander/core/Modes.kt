@@ -62,9 +62,18 @@ content, reply ONLY with: NOP: <short reason in the speaker's language>
 
     companion object {
         const val PREF_KEY = "mode"
+        const val ENABLED_KEY = "enabled_modes"
         const val NOP_PREFIX = "NOP:"
         const val DEFAULT_ID = "AI_INTERACTION"
 
         fun byId(id: String?): Mode = entries.firstOrNull { it.name == id } ?: AI_INTERACTION
+
+        /** The user-visible mode set: honors the persisted enablement, and an
+         *  empty or unknown set (= nothing disabled yet) means everything. */
+        fun enabled(persisted: Set<String>?): List<Mode> {
+            if (persisted.isNullOrEmpty()) return entries.toList()
+            val kept = entries.filter { it.name in persisted }
+            return if (kept.isEmpty()) entries.toList() else kept
+        }
     }
 }
