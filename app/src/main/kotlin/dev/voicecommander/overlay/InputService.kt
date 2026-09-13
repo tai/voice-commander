@@ -36,6 +36,7 @@ import dev.voicecommander.core.Directive
 import dev.voicecommander.core.DirectiveParser
 import dev.voicecommander.core.IntentScheduler
 import dev.voicecommander.core.IntentPrompt
+import dev.voicecommander.core.Mode
 import dev.voicecommander.core.Route
 import dev.voicecommander.core.Router
 import dev.voicecommander.core.TranscriptBuffer
@@ -64,6 +65,7 @@ class InputService : Service() {
     private fun log(m: String) = Log.d(TAG, m)
 
     private var buttonView: View? = null
+    private var modeMenuView: ViewGroup? = null
     private var panelView: ViewGroup? = null
     private var popupView: ViewGroup? = null
     private var rawView: TextView? = null
@@ -126,6 +128,8 @@ class InputService : Service() {
     private fun startSession() {
         log("session.start")
         closePopup()          // a new session invalidates a pending popup
+        closeModeMenu()
+        setStatus("listening · ${currentMode().label}")
         sessionId++
         buffer.reset()
         intentText = null
@@ -240,7 +244,8 @@ class InputService : Service() {
                 val parsed = DirectiveParser.parse(raw)
                 if (parsed.directive == Directive.VERBATIM) return@IntentScheduler parsed.content
                 val key = AppState.apiKey.ifBlank { return@IntentScheduler null }
-                val sys = IntentPrompt.SYSTEM + when (parsed.directive) {
+                val mode = currentMode()
+                val sys = mode.prompt + when (parsed.directive) {
                     Directive.SHORTER -> "\nKeep it as short as possible."
                     Directive.ENGLISH -> "\nOutput in English."
                     else -> ""
@@ -248,7 +253,13 @@ class InputService : Service() {
                 val result = OpenAIClient(http, key, AppState.model)
                     .interpret(sys, parsed.content)
                 result.exceptionOrNull()?.let { log("intent.error ${it.message?.take(120)}") }
-                result.getOrNull()?.ifBlank { null }
+                val text = result.getOrNull()?.ifBlank { null }
+                if (text != null && text.startsWith(Mode.NOP_PREFIX)) {
+                    // Mode "no operation": show feedback in the HUD, send nothing.
+                    main.post { setStatus(text) }
+                    log("mode.nop ${text.take(80)}")
+                    null
+                } else text
             },
             onIntent = { text, rev -> main.post { applyIntent(text, rev) } },
             onError = { m ->
@@ -311,12 +322,14 @@ class InputService : Service() {
         val dm = resources.displayMetrics
         var downX = 0f
         var downY = 0f
+        var downT = 0L
         var dragging = false
         b.setOnTouchListener { _, e ->
             when (e.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     downX = e.rawX
                     downY = e.rawY
+                    downT = e.eventTime
                     dragging = false
                     slideOff = false
                     startSession()   // listening starts immediately; drag repositions
@@ -344,7 +357,15 @@ class InputService : Service() {
                         // Reposition done: keep the session and still review it.
                         AppState.prefs(this).edit().putInt("button_x", lp.x).putInt("button_y", lp.y).apply()
                     }
-                    if (slideOff) cancelSilently() else endSession()
+                    when {
+                        slideOff -> cancelSilently()
+                        !dragging && e.eventTime - downT < TAP_MS -> {
+                            // Short tap: not a dictation — open the mode menu (issue #6).
+                            cancelSilently()
+                            openModeMenu()
+                        }
+                        else -> endSession()
+                    }
                     dragging = false
                     slideOff = false
                 }
@@ -434,7 +455,7 @@ class InputService : Service() {
         if (popupView == null) buildPopup()
         popupPreview?.text = text
         popupTag?.text = tag
-        popupTarget?.text = "→ ${targetLabel()}"
+        popupTarget?.text = "→ ${targetLabel()} · ${currentMode().label}"
     }
 
     private fun buildPopup() {
@@ -610,6 +631,83 @@ fi
         }
     }
 
+    private fun currentMode(): Mode {
+        val prefs = AppState.prefs(this)
+        return Mode.byId(prefs.getString(Mode.PREF_KEY, Mode.DEFAULT_ID))
+    }
+
+    // ---------------------------------------------------------------- mode menu
+
+    private fun openModeMenu() {
+        if (modeMenuView != null) return
+        closePopup()
+        log("mode.menu.open")
+        val card = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(12f).toInt(), dp(10f).toInt(), dp(12f).toInt(), dp(10f).toInt())
+            background = card()
+        }
+        val head = TextView(this).apply {
+            text = "MODE"
+            textSize = 10f
+            setTextColor(0xFF9AA0A6.toInt())
+            setPadding(0, 0, 0, dp(8f).toInt())
+        }
+        card.addView(head)
+        val current = currentMode()
+        Mode.entries.forEach { m ->
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(dp(8f).toInt(), dp(6f).toInt(), dp(8f).toInt(), dp(6f).toInt())
+                background = GradientDrawable().apply {
+                    cornerRadius = dp(8f)
+                    if (m == current) setColor(0xFF37474F.toInt()) else setColor(0x22000000.toInt())
+                }
+                isClickable = true
+            }
+            row.addView(TextView(this).apply {
+                text = (if (m == current) "● " else "○ ") + m.label
+                textSize = 14f
+                setTextColor(Color.WHITE)
+            })
+            row.addView(TextView(this).apply {
+                text = m.description
+                textSize = 11f
+                setTextColor(0xFFBBBBBB.toInt())
+            })
+            row.setOnClickListener {
+                AppState.prefs(this@InputService).edit().putString(Mode.PREF_KEY, m.name).apply()
+                log("mode.selected ${m.name}")
+                closeModeMenu()
+                toast("mode: ${m.label}")
+            }
+            card.addView(row, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        }
+        // Anchor the menu just above the button's current position.
+        val blp = buttonView?.layoutParams as? WindowManager.LayoutParams
+        val lp = WindowManager.LayoutParams(
+            dp(240f).toInt(), ViewGroup.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+            PixelFormat.TRANSLUCENT,
+        )
+        if (blp != null) {
+            lp.gravity = Gravity.TOP or Gravity.START
+            lp.x = blp.x.coerceIn(0, resources.displayMetrics.widthPixels - dp(240f).toInt())
+            lp.y = (blp.y - dp(200f).toInt()).coerceAtLeast(0)
+        } else {
+            lp.gravity = Gravity.BOTTOM or Gravity.END
+            lp.y = dp(300f).toInt()
+        }
+        runCatching { wm.addView(card, lp) }.onFailure { return }
+        modeMenuView = card
+    }
+
+    private fun closeModeMenu() {
+        modeMenuView?.let { runCatching { wm.removeView(it) } }
+        modeMenuView = null
+    }
+
     private fun targetLabel(): String {
         val a11y = CommanderAccessibilityService.instance
         val front = Router.effectiveFrontmost(
@@ -678,5 +776,6 @@ fi
         const val ACTION_STOP = "dev.voicecommander.STOP"
         const val EXTRA_TEXT = "text"
         const val AUTO_CLOSE_MS = 120_000L
+        const val TAP_MS = 300L
     }
 }
