@@ -17,8 +17,8 @@ agent acts only after you press Return in the terminal.
 ```
 ┌────────────────────────────────────────────────┐
 │ RAW (streaming while you hold)                 │
-│ えーと、このディレクトリの Rust ファイルから、  │
-│ unsafe を探して、リストにしてほしいんだけど…   │
+│ uh, find the unsafe in the Rust files in this  │
+│ directory and, um, make a list of them…        │
 │                                                │
 │ INTENT (appears ~1-2s after release)           │
 │ List every use of `unsafe` in Rust files under │
@@ -41,8 +41,8 @@ agent acts only after you press Return in the terminal.
 
 - **It sends what you meant, not what you said.** Dictation types fillers,
   false starts and backtracking verbatim. VoiceCommander turns the spoken
-  sentence into the instruction that expresses it: say 「3時、いや4時に変更して」
-  and the agent is told 4時.
+  sentence into the instruction that expresses it: say "reschedule it to
+  3 pm — no wait, 4 pm" and the agent is told 4 pm.
 - **You see it, then you decide.** Nothing is sent on release alone: the
   review popup shows the exact text — interpreted when ready, raw when not —
   and gives you Send, Edit, or Cancel. A misfire costs one tap, never an
@@ -72,7 +72,7 @@ INTENT (LLM interpretation, live in the panel; the popup never waits for it)
         │
         ▼  review popup: Send / Edit / Cancel
         │
-Send ──► termux-input into Termux │ ACTION_SET_TEXT into a text field │ clipboard
+Send ──► tmux send-keys into Termux │ ACTION_SET_TEXT into a text field │ clipboard
         │
         ▼  you press Return in the terminal
 agent runs it
@@ -130,9 +130,8 @@ release. The review popup appears.
   you tap. Only tapping **Send** delivers anything; your raw words are sent
   only when you explicitly send them, never automatically.
 
-**Spoken directives** work mid-sentence: 「もっと短く」(shorter), 「英語で」(in
-English), 「この通り入力して」(type verbatim). The INTENT reflects them before the
-popup appears.
+**Spoken directives** work mid-sentence: *make it shorter*, *in English*,
+*type it verbatim*. The INTENT reflects them before the popup appears.
 
 **Confirm in the terminal:** after Send into Termux, the instruction is text at
 the agent's prompt. Press **Return in Termux** to hand it to the agent.
@@ -143,7 +142,8 @@ the same review popup. Turn it on in settings; volume control returns when it's
 off.
 
 **Target choice:** the popup footer names the destination ("→ Termux").
-VoiceCommander picks it automatically: frontmost app is Termux → `termux-input`;
+VoiceCommander picks it automatically: frontmost app is Termux → the tmux
+session;
 frontmost is another app with a focused text field → direct insert; otherwise
 → clipboard ("copied — paste where you want").
 
