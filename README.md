@@ -36,11 +36,6 @@ agent acts only after you press Return in the terminal.
 └────────────────────────────────────────────────┘
 ```
 
-<p align="center">
-  <img src="doc/asset/shot-listening.png" width="260" alt="Listening — RAW streams while holding the button">
-  <img src="doc/asset/shot-popup.png" width="260" alt="Review popup — interpreted intent with Send / Edit / Cancel">
-  <img src="doc/asset/shot-delivery.png" width="260" alt="Delivered — text inserted into the target app">
-</p>
 
 ## Why it is worth using
 
