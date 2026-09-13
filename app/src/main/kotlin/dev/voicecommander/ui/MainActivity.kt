@@ -263,16 +263,20 @@ class MainActivity : Activity() {
                 check.text = m.label
                 Toast.makeText(this, "defaults restored", Toast.LENGTH_SHORT).show()
             }.apply { visibility = View.GONE }
+            val titleLabel = view("Title").apply { visibility = View.GONE }
+            val promptLabel = view("Prompt").apply { visibility = View.GONE }
             val customizeBtn = button("Customize (title + prompt)") {
                 val show = editor.visibility != View.VISIBLE
+                titleLabel.visibility = if (show) View.VISIBLE else View.GONE
                 titleEdit.visibility = if (show) View.VISIBLE else View.GONE
+                promptLabel.visibility = if (show) View.VISIBLE else View.GONE
                 editor.visibility = if (show) View.VISIBLE else View.GONE
                 saveC.visibility = if (show) View.VISIBLE else View.GONE
                 resetC.visibility = if (show) View.VISIBLE else View.GONE
             }
             col.addView(customizeBtn)
-            col.addView(view("Title")); col.addView(titleEdit)
-            col.addView(view("Prompt")); col.addView(editor)
+            col.addView(titleLabel); col.addView(titleEdit)
+            col.addView(promptLabel); col.addView(editor)
             col.addView(saveC)
             col.addView(resetC)
             col.addView(view(" ")) // spacing
