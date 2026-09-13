@@ -63,6 +63,7 @@ content, reply ONLY with: NOP: <short reason in the speaker's language>
     companion object {
         const val PREF_KEY = "mode"
         const val ENABLED_KEY = "enabled_modes"
+        const val PROMPT_OVERRIDE_KEY = "prompt_"  // + mode.name
         const val NOP_PREFIX = "NOP:"
         const val DEFAULT_ID = "AI_INTERACTION"
 
@@ -75,5 +76,10 @@ content, reply ONLY with: NOP: <short reason in the speaker's language>
             val kept = entries.filter { it.name in persisted }
             return if (kept.isEmpty()) entries.toList() else kept
         }
+
+        /** User-editable prompts: a persisted per-mode override replaces the
+         *  built-in default when present (issue #7 comment plan). */
+        fun effectivePrompt(mode: Mode, override: String?): String =
+            if (override.isNullOrBlank()) mode.prompt else override.trim()
     }
 }

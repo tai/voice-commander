@@ -34,6 +34,13 @@ class ModesTest {
     }
 
     @Test
+    fun `prompt override replaces the default when present`() {
+        assertEquals(Mode.AI_INTERACTION.prompt, Mode.effectivePrompt(Mode.AI_INTERACTION, null))
+        assertEquals("custom", Mode.effectivePrompt(Mode.AI_INTERACTION, " custom "))
+        assertEquals(Mode.DOCUMENT_EDIT.prompt, Mode.effectivePrompt(Mode.DOCUMENT_EDIT, "   "))
+    }
+
+    @Test
     fun `enabled filter honors persistence`() {
         assertEquals(2, Mode.enabled(null).size)
         assertEquals(2, Mode.enabled(emptySet()).size)

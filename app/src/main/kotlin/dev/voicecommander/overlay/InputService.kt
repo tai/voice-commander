@@ -245,7 +245,9 @@ class InputService : Service() {
                 if (parsed.directive == Directive.VERBATIM) return@IntentScheduler parsed.content
                 val key = AppState.apiKey.ifBlank { return@IntentScheduler null }
                 val mode = currentMode()
-                val sys = mode.prompt + when (parsed.directive) {
+                val override = AppState.prefs(this)
+                    .getString(Mode.PROMPT_OVERRIDE_KEY + mode.name, "")
+                val sys = Mode.effectivePrompt(mode, override) + when (parsed.directive) {
                     Directive.SHORTER -> "\nKeep it as short as possible."
                     Directive.ENGLISH -> "\nOutput in English."
                     else -> ""
