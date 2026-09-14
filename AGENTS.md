@@ -333,6 +333,30 @@ samples + expected-INTENT scoring in JVM tests.
 Debugging: `adb logcat | grep VoiceCommander`, plus the in-app debug dump
 behind a settings toggle. Text logging stays behind a debug flag.
 
+## Project operations (how this repo is actually managed)
+
+- **Origin:** https://github.com/tai/voice-commander — pushed via SSH
+  (`git@github.com:tai/voice-commander.git`), default branch `main`.
+- **GitHub access:** `gh` CLI is preconfigured with auth on this machine —
+  issues and PRs are created/closed through `gh issue …` / `gh pr …`. The
+  open backlog is the design ledger; see STATUS.md "Discussed / designed".
+- **Issue conventions:** each feature is a ticket first (concise spec + open
+  questions), then implementation on a `feat/*` branch, verified on a real
+  device, merged to `main`, pushed, and the ticket closed with a
+  verified-summary comment. Closed issues keep the deferral notes.
+- **Devices:** phone `ZY22JSFS7R` (Motorola Edge 50s Pro, API 36) and
+  emulator `emulator-5554` (AVD `Medium_Phone`, API 37). `adb` is NOT on the
+  shell PATH — use `$HOME/Library/Android/sdk/platform-tools/adb` or the
+  Makefile (`make install DEVICE=…`, `make run`, `make inject TEXT="…"`).
+- **Headless driving:** transcripts are injected over the INJECT broadcast
+  (`make inject`) to run RAW→INTENT→delivery without a microphone; UI is
+  verified via `uiautomator dump`/screencap+OCR; config is written with
+  `adb shell run-as dev.voicecommander` into `shared_prefs/vc.xml` (API key
+  from `./dot.env`, which is gitignored).
+- **Gotchas that reset state:** `am force-stop` disables the accessibility
+  service (re-enable via `settings put secure …`); the API key lives in
+  dot.env and is restored to the phone via the prefs write above.
+
 ## Implementation order
 
 Work vertically.

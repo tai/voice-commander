@@ -1,178 +1,91 @@
 # VoiceCommander — status
 
-Snapshot: **first prototype built and installed on the device** (Motorola Edge
-50s Pro, Android 16, API 36; adb serial ZY22JSFS7R). Kotlin app, one module,
-17 JVM unit tests green, `make build/test/install/run` work from this Mac
-(JBR from Android Studio; Gradle project cache forced to local disk because
-the repo lives on a network share — the prototype's mount lesson, again).
+Snapshot: **2026-09-13, `main` @ `8d544d9`** (+ working tree edits as recorded
+below). Android app, Kotlin, one module; 28 unit tests green. Built and driven
+via adb from this Mac against:
+- **Phone:** Motorola Edge 50s Pro (`ZY22JSFS7R`, Android 16/API 36) — the
+  real device, everything app-side is installed there and verified on it.
+- **Emulator:** `emulator-5554` (API 37 AVD `Medium_Phone`) — headless
+  playback/verification target.
 
-What this app is for and how to use it: `README.md`. The design, decisions,
-and open questions: `DESIGN.md`. Structure, workflow, policy: `AGENTS.md`.
+What this app is for and how to use it: `README.md`. Design decisions and
+deviations: `DESIGN.md`. Structure, workflow, rules: `AGENTS.md`.
 
-## Built and verified (headless + emulator)
+## What is done, and how we know
 
-| Piece | Evidence |
+| Capability | Evidence |
 | --- | --- |
-| Project builds | `assembleDebug` green under AGP 8.12 / Kotlin 2.2.20 / SDK 36 |
-| Pure core logic | 17 JVM tests: scheduler (coalesce, debounce, late-response rejection, reset), directives, router, transcript buffer (partial-replacement, CJK/Latin join). Two bugs found and fixed by these tests |
-| Install + launch | APK installed on the phone (Motorola Edge 50s Pro) and on the Medium_Phone AVD; MainActivity launches |
-| Foreground service | running with `type=microphone`, persistent notification, Start/Stop via adb (`make start/stop`) on both targets |
-| Overlay button | `TYPE_APPLICATION_OVERLAY` window, bottom-end, `SYSTEM_ALERT_WINDOW` granted |
-| Accessibility service | bound, window-state + focused-node events flowing (device also has `com.termux` + `com.termux.api` installed) |
-| **Full loop on the emulator** (driven via adb + `make TEXT="…" inject`): | |
-| … hold → session, RAW in buffer → release → popup preview | `session.start` … `popup.show text=…` logs |
-| … Send → FOCUSED_FIELD route → `ACTION_SET_TEXT` | text appeared in Chrome's omnibox; Chrome live-searched the phrase |
-| … Edit → EditActivity, edit, Send → delivered; back → popup persists | focused activity + UI dumps |
-| … Cancel → popup closes, nothing delivered | window count + deliver-log unchanged |
+| Hold-to-talk loop: button → RAW → INTENT → review popup (Send/Edit/Cancel) → delivery | driven end-to-end on the phone and emulator via `make inject`; real speech confirmed by the author ("voice is recognized, interpretation works") |
+| Interpretation (OpenAI Responses, gpt-5.6-luna, `reasoning.effort=none`) with debounce + monotonic revisions | `intent.ready` logs; the demo's single-utterance correction RAW「1枚…いや…3枚」→ INTENT「3枚追加して」 |
+| Termux delivery via **tmux** `send-keys -l` + Enter on Send (agent starts immediately) | marker-file proof (`CLEAN-E2E-OK`); the pi-agent demo edited the live README from a spoken intent; refusal notes for `termux-input` (does not exist), pty/TIOCSTI/master/a11y injection (all proven dead) — channnel matrix in DESIGN.md/STATUS history |
+| Mode framework PoC: **AI interaction** (instructive, NOP on non-actions) + **Document edit** (tone/length preserving, Markdown-light, NOP on commands) | live contrast: prose → NOP under AI mode; same prose → preserved dictation under Document edit |
+| Mode switcher: short-tap on the button opens the HUD mode menu (Option A), selection persists | `mode.menu.open` / `mode.selected` logs; device-verified |
+| NOP contract | `NOP: <reason>` surfaced in HUD, nothing sent (device logs) |
+| Config UI: hamburger + drawer (General / Mode / Status); mode enable/disable; per-mode **title** and **prompt** editors (Save / Restore defaults); overrides honored by interpretation | device-verified incl. OCR: custom prompt → "HELLO WORLD"; custom title → "• Command" in the menu |
+| Notification gains a **Setup** action (besides Stop) | `actions=2`; opens the config activity |
+| Fixes discovered while verifying: a11y enabled-but-not-bound detection (AccessibilityManager), systemui/IME window events no longer clobber the frontmost target, force-stop disables a11y binding (re-enable via settings), DarkActionBar hid/blocked the top UI under edge-to-edge (→ NoActionBar), status-bar padding for the top bar | each root-caused (OCR/pixel forensics for the theme one) and regression-checked |
+| Demo/hackathon assets | `doc/asset/`: `demo.mp4`/`demo-short.mp4` (English take: pi launch → voice correction → pi edits README), `demo.gif`, `demo-short.gif`, `demo-short-zoom.gif` (embedded at README top), shot-*.png. README embeds only the zoom GIF |
+| 28 unit tests | scheduler races, directives, router (live-target fallback), transcript, modes (NOP sentinel, prompt/label overrides, enable filter) |
 
-Fixes found by the emulator runs: focused-node cache went stale (Chrome
-churns content events) → delivery now re-queries `findFocus(FOCUS_INPUT)`
-live at Send time; frontmost was null because Chrome's omnibox fires no
-window-state event → live `rootInActiveWindow` fallback; **missing
-`INTERNET` permission** (no debug-manifest overlay in this repo) broke the
-OpenAI call on both targets until added. One cosmetic quirk: when an IME is
-up its window-state event overwrites frontmost; the route logic tolerates it
-but the popup footer can show the IME package.
+## Discussed / designed, not built
 
-## INTENT verified live (test key from ./dot.env)
+Tracked as GitHub issues (tai/voice-commander):
 
-Real OpenAI calls through the app on **both** targets via `make inject`:
+- **#1 framework — purpose-specific modes** (mode = prompt + NOP contract).
+  Implemented for two modes; the framework ticket stays open for the rest.
+- **Modes not yet implemented:** #2 SQL analysis (dialect/schema/destructive-
+  confirmation open questions), #3 Jupyter-based analysis (stateful namespace,
+  ipython-first target), #4 AI interaction (shipped as the PoC default;
+  ticket open for instructive-only contract strictness + agent tool-space
+  questions), #5 Document edit (shipped; ticket open for structure
+  aggression/language-strictness questions).
+- **#8 shareable modes + `voice-commander-modes` store** — mode → `mode.json`,
+  one-tap export/import, PR-based exchange repo. Requires modes to leave the
+  enum (dynamic installed modes).
+- **#9 settings backup/restore** — encrypt-and-upload (passphrase → PBKDF2 →
+  AES-GCM `backup.vcrypt`), download-and-decrypt; API key in scope makes it
+  load-bearing; file-first transport, gist/Drive later. Reminder-level detail.
+- **#10 Mode config: add / remove a mode** — user-created modes; built-ins
+  disable-only (proposal); cascades into clamp/menu.
+- **Deferred, agreed:** per-mode validators (syntax check before Send —
+  mentioned in #2/#3), voice-switched modes ("switch to Linux mode" as a
+  directive), volume-key trigger remains opt-in.
 
-| RAW (injected) | INTENT (returned) |
-| --- | --- |
-| このディレクトリのRustファイルからunsafeを探してリストにして | このディレクトリのRustファイルからunsafeの使用箇所をすべて探してリスト化して |
-| 過去三日間のgitログからテストを書いたコミットだけリストして | 過去三日間のgitログから、テストを書いたコミットだけリストして |
+## Known limitations / not verified
 
-Latency ≈2 s after release (700 ms debounce + call). Revision guard proven:
-`intent.ready rev=2` overwrote rev=1 of the previous session and delivered
-text == displayed preview. The model sometimes echoes the input verbatim
-(revision 2 did) — model behavior, not a bug.
+- **Nearly all pipeline verification used injected transcripts** (`make
+  inject`), not a live microphone; real-speech acceptance was confirmed once
+  by the author but RAW-quality (SpeechRecognizer, ja-JP default) is
+  stress-untested. Keywords setting for the recognizer does not exist yet.
+- **Termux delivery requires the tmux setup**: agent running inside a tmux
+  session named in Settings (`agent`), `allow-external-apps=true`, and the
+  `com.termux.permission.RUN_COMMAND` runtime grant. Non-tmux targets fall
+  back to clipboard + paste.
+- **UI verification was OCR/pixel-driven** (no visual review during dev):
+  the mode menu anchors near the button but the anchor math had one
+  cosmetically-off run; the review popup geometry used for adb taps.
+- **An open keyboard eats overlay touches** (IME fullscreen window sits above
+  overlays) — pre-existing; dismiss the keyboard before using the button.
+- Force-stop disables the a11y service (Android security); re-enable after
+  any `am force-stop` (Makefile/status section documents this).
+- `adb` is not on the shell PATH on this Mac — the Makefile and SDK-path
+  invocations are the working route.
+- Long-utterance, battery, and multi-day daily-use are unmeasured.
 
-## Direct delivery fixed (your clipboard report)
+## Open research notes worth keeping
 
-Two real bugs behind "result only goes to the clipboard", both found and fixed
-with on-device evidence:
+- Android app-uid **cannot inject input into another app's terminal** (pty
+  slave-write = display only; TIOCSTI silent no-op; master-fd not reachable;
+  a11y has no key injection). The tmux `send-keys` route is the working
+  injection channel for REPL agents; `adb shell input` works only from shell.
+- Raw text is never auto-sent; raw-fallback in the popup is user-confirmed
+  only; no synthesized Return except the explicit Send on the Termux route.
 
-1. **Stale frontmost cache**: the delivery target came from cached
-   window-state events, which get overwritten by systemui/IME windows and can
-   be wrong (phone log showed `frontmost=com.android.systemui` while Termux
-   was actually frontmost). Delivery now trusts the **live active-window
-   root** first, with an ignore list for system chrome (`systemui`, IMEs, our
-   own package). Proven on the phone: `deliver route=TERMUX
-   frontmost=com.termux`. Pure logic in `Router.effectiveFrontmost` + 4 new
-   unit tests (21 total).
-2. **Background-thread UI crash**: the scheduler's interpretation callback
-   ran on `Dispatchers.Default` and touched TextViews —
-   `CalledFromWrongThreadException` on the phone (the emulator silently
-   tolerated it). Every schedule callback is now marshalled to the main
-   thread. Proven: zero crashes across repeat runs on both devices;
-   emulator regression still delivers INTENT into Chrome's omnibox.
+## Next steps (suggested order)
 
-Tooling note: force-stopping the app **disables its accessibility service**
-(Android security behavior) — re-enable after any `am force-stop`.
-
-## Termux input injection: exhaustive channel matrix (all headless-verified)
-
-Conclusion: **an unprivileged app cannot inject input into a Termux session on
-this device (Android 16, Termux 0.118.1).** Every channel was tested with
-`\n`-terminated marker-writing commands and polled via /sdcard:
-
-| Channel | Result | Evidence |
-| --- | --- | --- |
-| `RUN_COMMAND` via `sendBroadcast` | no receiver exists | 0.118 has the action only on the exported `RunCommandService` `<service>` intent-filter; broadcast resolves to zero receivers |
-| `RUN_COMMAND` via `startService` | **transport works** | scripts execute inside Termux (uid 10606); broadcast echo-backs verified repeatedly |
-| write to pty **slave** (`/dev/pts/0`) | display-only, not input | text visibly appeared in the session (user-confirmed); `\n`-command never executed |
-| **TIOCSTI** on the slave | silently no-op | ioctl returns 0, nothing reaches bash (no marker, no echo) |
-| write to pty **master** via `/proc/<termux>/fd/*` | no delivery to the user session | marker absent; the one findable ptmx fd maps via TIOCGPTN to a non-session pts |
-| a11y `ACTION_SET_TEXT` into `com.termux:id/terminal_toolbar_text_input` | no forwarding | `focus=true settext=true`, nothing reached the shell |
-| `adb shell input text` (shell uid) | **works** | executed commands in the session (marker file) — but needs `INJECT_EVENTS`, shell-only |
-| user's own keys | **works** | of course |
-
-Why: pty device nodes are per-session 600 (app), TIOCSTI is domain-blocked,
-and the session's master fd is not reachable. The `termux-input` binary does
-not exist (checked the termux-api v0.59.1 package: no such script).
-
-## v2 Termux delivery: tmux (the rethink, verified end-to-end)
-
-The user's case made the limit concrete: *typed `echo foo ` + injected `bar` appears
-as `echo foo bar` on screen, but Enter submits only the typed part* — the injected
-bytes never enter the pty input queue (display-side only).
-
-**Solved by tmux.** If the agent runs inside a tmux session in Termux (a
-standard pattern), VoiceCommander drives it through tmux's own command
-interface — same-UID socket access, no pty games:
-
-```
-tmux send-keys -t <session> -l "$INTENT"     # literal text into the real input queue
-tmux send-keys -t <session> Enter             # submit
-```
-
-Verified headlessly end-to-end on the device: the app (via RUN_COMMAND →
-tmux) sent `echo CLEAN-E2E-OK > /sdcard/vc_clean.txt` into a named tmux
-session; the session's shell executed it; the marker file was written. Also
-verified: Japanese text round-trips, `capture-pane -p` reads the pane back
-(for HUD readout later), and user text must go through `-l` with Enter as a
-separate send (otherwise tmux parses words like `Enter`/`Space` as keys).
-
-**Flow now**: agent runs in tmux (name in Settings, default `agent`) → Send =
-`send-keys -l INTENT` + `Enter` (auto-submit; the review popup is the user's
-confirmation) + toast. Fallback when no tmux session is configured:
-clipboard + in-session visual echo + paste.
-
-One-time setup for the user: `pkg install tmux`, run the agent inside
-tmux, set the session name in VoiceCommander settings.
-
-## What still needs a real key or speech
-
-1. **SpeechRecognizer RAW**: verified only by injection; real spoken input
-   needs the phone (or a mic on the host + on-device recognizer).
-3. **Termux route**: the `com.termux.RUN_COMMAND` broadcast reaches Termux but
-   is silently dropped — Termux's `allow-external-apps=true` is not set on the
-   phone. The one-liner, inside Termux:
-   `echo "allow-external-apps=true" >> ~/.termux/termux.properties`
-   then restart Termux (or `termux-reload-settings`). After that, Send with
-   Termux frontmost delivers via tmux `send-keys` and submits on Send.
-
-## What needs the unlocked phone (your part)
-
-The device is pattern-locked; overlays are policy-hidden behind the keyguard,
-so every interactive step still needs you:
-
-1. **Unlock the phone.**
-2. **Open VoiceCommander and add your OpenAI API key** (settings screen) —
-   RAW works without it; INTENT does not.
-3. **Speak a task**: hold the floating 🎤 button, speak (e.g. 「このディレクトリの
-   Rust ファイルから unsafe を探して」), release → popup with Send / Edit /
-   Cancel. RAW fallback shows if INTENT is not ready; Send without a key goes
-   to the clipboard.
-4. **Termux delivery**: device already has `com.termux` and `com.termux.api`.
-   In Termux run `pkg install termux-api` and add `allow-external-apps=true`
-   to `~/.termux/termux.properties`, then restart Termux. Send routes to
-   tmux `send-keys` + Enter on Send (auto-submit).
-
-## Known limitations of the first cut
-
-- Interaction flow (hold → panel → release → popup → Edit loop → delivery)
-  is verified only headlessly as far as window/component state; the feel is
-  unmeasured.
-- SpeechRecognizer language is ja-JP by default (device locale); the
-  keywords setting does not exist yet — prototype limitation.
-- tmux `send-keys` delivery verified end to end on the device (marker-file
-  proof); output readback via `capture-pane` verified.
-- No OpenAI key in the app, so interpretation is untested on the device.
-- API key stored in SharedPreferences (plain), not encrypted (A8 pending).
-- Overlay not draggable; the button is fixed bottom-end (A2 refinement
-  pending). Volume-key trigger not built (deferred by design).
-
-## Outstanding
-
-1. On-device run of the full loop with speech (RAW → popup → Send).
-2. INTENT quality with a real API key — constraint fidelity on the sample
-   utterances; the M3 gate from AGENTS.md.
-3. Termux round-trip with a real agent prompt (done in the demo: pi agent
-   edited the repo from a voice-typed INTENT).
-4. Edit/bounce loop and per-app `ACTION_SET_TEXT` on the device.
-5. Re-measure: recognizer latency/quality, popup cadence, battery.
-
-The design documents (DESIGN.md A1–A10, AGENTS.md milestones) still describe
-the intended end state; this file now tracks the actual first cut against it.
+1. Real-speech acceptance pass on the phone (hold → speak → Send into the
+   pi-in-tmux setup).
+2. #10 add/remove mode UI (small, builds directly on the current Mode tab).
+3. #8 mode portability (biggest architectural step: dynamic modes + schema +
+   the store repo).
+4. #2/#3/#4/#5 as concrete modes once dynamic modes exist; then #9 backup.
